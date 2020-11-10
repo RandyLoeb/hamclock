@@ -8,6 +8,8 @@
 #include <WiFiUdp.h>
 #include <time.h>
 #include "mywifi.h"
+#include "wifiConfigWebServer.h"
+#include "wifiUtils.h"
 
 // Define the connections pins:
 #define CLK D1
@@ -84,6 +86,9 @@ void timeCheckPoint()
   checkPointTime_t = timeClient.getEpochTime();
 }
 
+bool GLOBAL_AP_MODE = false;
+WifiUtils _wifiUtils;
+
 void setup()
 {
   // put your setup code here, to run once:
@@ -93,7 +98,8 @@ void setup()
   display.setBrightness(5);
   // Clear the display:
   display.clear();
-  WiFi.begin(ssid, password);
+  _wifiUtils.initialize();
+  //WiFi.begin(ssid, password);
 
   while (WiFi.status() != WL_CONNECTED)
   {

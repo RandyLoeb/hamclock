@@ -2,10 +2,12 @@
 #define WIFICONFIGWEBSERVER_H
 #include "ESPAsyncWebServer.h"
 #include "wifiUtils.h"
+#include "AsyncJson.h"
+#include "ArduinoJson.h"
 #if !defined FILE_READ
 #define FILE_READ "r"
 #endif
-class KeyerWebServer
+class MyWifiConfigWebServer
 {
 
     AsyncWebServer server;
@@ -19,6 +21,7 @@ class KeyerWebServer
     String getWifiAdminJS(); */
 
 public:
+    MyWifiConfigWebServer() : server(80) {}
     WifiUtils *_wifiUtils;
 
     void start()
@@ -43,16 +46,27 @@ public:
         server.on("/wifiadmin.js", HTTP_GET, [this](AsyncWebServerRequest *request) { request->send(SPIFFS, "/wifiadmin.js", "text/javascript"); });
 
         server.on("/wifiscan", [this](AsyncWebServerRequest *request) {
-        String scanJson = this->_wifiUtils->getWiFiScan();
+        Serial.println("About to scanwifi from web");
+        String scanJson = this->_wifiUtils->getWiFiScan(true);
+        Serial.print("Got wifiscan from web:");Serial.println(scanJson);
         request->send(200, "application/json", scanJson); });
 
         //nothing in first lambda blocks, and dont remove it
-        server.on(
+        AsyncCallbackJsonWebHandler *handler = new AsyncCallbackJsonWebHandler("/updateap", [this](AsyncWebServerRequest *request, JsonVariant &json) {
+            JsonObject jsonObj = json.as<JsonObject>();
+            // ...
+            this->_wifiUtils->updateAp(jsonObj);
+            request->send(200, "text/html", "ok");
+        });
+        server.addHandler(handler);
+        /* server.on(
             "/updateap", HTTP_POST, [this](AsyncWebServerRequest *request) {}, NULL, [this](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+     
      String s = String((const char*)data);
-  
+     request->
+      Serial.print("web update ap:");Serial.println(s);
       this->_wifiUtils->updateAp(s);
-        request->send(200, "text/html", "ok"); });
+        request->send(200, "text/html", "ok"); }); */
 
         server.on(
             "/forgetap", HTTP_POST, [this](AsyncWebServerRequest *request) {}, NULL, [this](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {

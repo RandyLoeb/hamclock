@@ -58,6 +58,8 @@ class WifiUtils
 
     String _ipAddr;
     String _apName;
+    String _selfApName;
+    bool _dsnRunning;
 
     void startupWifiConfigSites();
     void writeJsonConfigToFile(DynamicJsonDocument doc);
@@ -68,6 +70,7 @@ public:
         this->_ipAddr = "";
         this->_apName = "";
         this->DNS_PORT = 53;
+        this->_selfApName = "";
     };
     void initialize();
     String getIp()
@@ -85,8 +88,8 @@ public:
         return WiFi.macAddress();
     }
 
-    String getWiFiScan();
-    void updateAp(String jsonIn);
+    String getWiFiScan(bool async);
+    void updateAp(JsonObject &jsonObj);
     void forgetAp(String jsonIn);
     void processNextDNSRequest();
     void showJson();
@@ -94,6 +97,49 @@ public:
     void justStation()
     {
         WiFi.mode(WIFI_MODE_STA);
+    }
+    void setSelfAPName(String s)
+    {
+        this->_selfApName = String(s);
+    }
+    std::vector<String> getlistPlus(int n);
+    std::vector<String> scanLocalWifi()
+    {
+        //WiFi.scanDelete();
+        //String json = "[";
+        std::vector<String> listPlus;
+        int n = WiFi.scanComplete();
+        if (n == -2)
+        {
+            WiFi.scanNetworks(true);
+        }
+        else if (n)
+        {
+            listPlus = getlistPlus(n);
+            /* for (int i = 0; i < n; ++i)
+            {
+                if (i)
+                    json += ",";
+                json += "{";
+                json += "\"rssi\":" + String(WiFi.RSSI(i));
+                json += ",\"ssid\":\"" + WiFi.SSID(i) + "\"";
+                json += ",\"bssid\":\"" + WiFi.BSSIDstr(i) + "\"";
+                json += ",\"channel\":" + String(WiFi.channel(i));
+                json += ",\"secure\":" + String(WiFi.encryptionType(i));
+                json += ",\"hidden\":" + String(WiFi.isHidden(i) ? "true" : "false");
+                json += "}";
+            } */
+            WiFi.scanDelete();
+            if (WiFi.scanComplete() == -2)
+            {
+                WiFi.scanNetworks(true);
+            }
+        }
+        //json += "]";
+        //request->send(200, "application/json", json);
+        //json = String();
+        //return json;
+        return listPlus;
     }
 };
 #endif

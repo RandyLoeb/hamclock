@@ -43,18 +43,45 @@ std::vector<String> WifiUtils::extractAPnames(std::vector<String> listPlus)
         }
     }
 
+    Serial.println("Leaving ExtractAPNames");
     return apList;
+}
+
+std::vector<String> WifiUtils::getlistPlus(int n)
+{
+    std::vector<String> list;
+    std::vector<int> RSSI;
+    std::vector<int> isOpen;
+    std::vector<String> listPlus;
+    for (int i = 0; i < n; ++i)
+    {
+
+        list.push_back(WiFi.SSID(i));
+
+        RSSI.push_back(WiFi.RSSI(i));
+        isOpen.push_back((WiFi.encryptionType(i) == WIFI_AUTH_OPEN) ? true : false);
+
+        listPlus.push_back(WiFi.SSID(i));
+        int iRSSI = WiFi.RSSI(i);
+        String RSSIstring = String(iRSSI);
+        listPlus.push_back(RSSIstring);
+        listPlus.push_back((WiFi.encryptionType(i) == WIFI_AUTH_OPEN) ? "true" : "false");
+
+        //delay(10);
+    }
+
+    return listPlus;
 }
 
 std::vector<String> WifiUtils::getLocalWifiAps()
 {
-    std::vector<String> list;
-    std::vector<String> testlist;
+    //std::vector<String> list;
+    //std::vector<String> testlist;
 
     // listPlus augments list with extra info for scanned APs to display -- signal strength, open or closed network
     std::vector<String> listPlus;
-    std::vector<int> RSSI;
-    std::vector<int> isOpen;
+    //std::vector<int> RSSI;
+    //std::vector<int> isOpen;
 
     Serial.println("scan start");
     //String list = "";
@@ -69,7 +96,8 @@ std::vector<String> WifiUtils::getLocalWifiAps()
     {
         Serial.print(n);
         Serial.println(" networks found");
-        for (int i = 0; i < n; ++i)
+        listPlus = getlistPlus(n);
+        /* for (int i = 0; i < n; ++i)
         {
 
             list.push_back(WiFi.SSID(i));
@@ -84,10 +112,10 @@ std::vector<String> WifiUtils::getLocalWifiAps()
             listPlus.push_back((WiFi.encryptionType(i) == WIFI_AUTH_OPEN) ? "true" : "false");
 
             //delay(10);
-        }
+        } */
     }
 
-    testlist = extractAPnames(listPlus);
+    //testlist = extractAPnames(listPlus);
 
     for (int i = 0; i < listPlus.size(); i++)
     {
@@ -99,21 +127,35 @@ std::vector<String> WifiUtils::getLocalWifiAps()
 JsonArray WifiUtils::getApsStored()
 {
 
-    return this->_WIFI_CONFIG_JSON["aps"];
+    return this->_WIFI_CONFIG_JSON["aps"].as<JsonArray>();
 }
 
-String WifiUtils::getWiFiScan()
+String WifiUtils::getWiFiScan(bool async = false)
 {
 
-    std::vector<String> listPlus = getLocalWifiAps();
+    std::vector<String> listPlus;
+    if (!async)
+    {
+        listPlus = getLocalWifiAps();
+    }
+    else
+    {
+        listPlus = scanLocalWifi();
+    }
+
     std::vector<String> scannedAps = extractAPnames(listPlus);
+    Serial.print("in getWifiScan listPlus is:");
+    Serial.println(listPlus.size());
     std::vector<String> knownAps;
 
     String outStr = "";
 
     JsonArray apsStored;
     int apsCount;
+
+    Serial.println("about to getApsStored");
     apsStored = getApsStored();
+    Serial.println("got apsstored");
     Serial.print("Aps count:");
     Serial.println(apsStored.size());
     apsCount = apsStored.size();
@@ -382,6 +424,13 @@ void WifiUtils::readConfigFileIntoGlobalJson(File file)
 void WifiUtils::initialize()
 {
 
+    /* String testJson = this->scanLocalWifi();
+    Serial.println("local json scan:");
+    Serial.println(testJson);
+    testJson = this->scanLocalWifi();
+    Serial.println("local json scan:");
+    Serial.println(testJson); */
+
     File file = this->getConfigFile();
     if (!file || file.isDirectory())
     {
@@ -402,7 +451,7 @@ void WifiUtils::startupWifiConfigSites()
 {
 
     WiFi.mode(WIFI_AP);
-    WiFi.softAP("K3NG Keyer");
+    WiFi.softAP(this->_selfApName);
 
     Serial.print("WIFI AP IP address:\t");
     //Serial.println(WiFi.localIP());
@@ -411,14 +460,18 @@ void WifiUtils::startupWifiConfigSites()
     // if DNSServer is started with "*" for domain name, it will reply with
     // provided IP to all DNS request
     this->dnsServer.start(this->DNS_PORT, "*", WiFi.softAPIP());
+    this->_dsnRunning = true;
 }
 
 void WifiUtils::processNextDNSRequest()
 {
-    this->dnsServer.processNextRequest();
+    if (this->_dsnRunning)
+    {
+        this->dnsServer.processNextRequest();
+    }
 }
 
-void WifiUtils::updateAp(String jsonIn)
+void WifiUtils::updateAp(JsonObject &jsonObj)
 {
 
     String outstr;
@@ -428,11 +481,11 @@ void WifiUtils::updateAp(String jsonIn)
     //_MS_SINCE_LAST_WEB = 0;
     //Serial.println(server.args());
     //Serial.println(server.arg(0));
-    DynamicJsonDocument jBuffer(4096);
-    deserializeJson(jBuffer, jsonIn);
+    /* DynamicJsonDocument jBuffer(4096);
+    deserializeJson(jBuffer, jsonIn); */
 
-    String apName = jBuffer["ap"];
-    String pass = jBuffer["pass"];
+    String apName = jsonObj["ap"];
+    String pass = jsonObj["pass"];
 
     Serial.println("got apname as: " + apName);
 

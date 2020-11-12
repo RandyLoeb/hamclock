@@ -7,7 +7,6 @@
 //#include <WiFi101.h> // for WiFi 101 shield or MKR1000
 #include <WiFiUdp.h>
 #include <time.h>
-#include "mywifi.h"
 #include "wifiConfigWebServer.h"
 #include "wifiUtils.h"
 
@@ -88,6 +87,8 @@ void timeCheckPoint()
 
 bool GLOBAL_AP_MODE = false;
 WifiUtils _wifiUtils;
+bool timeClientInitialized = false;
+MyWifiConfigWebServer myWifiConfigWebServer;
 
 void setup()
 {
@@ -98,21 +99,26 @@ void setup()
   display.setBrightness(5);
   // Clear the display:
   display.clear();
+  _wifiUtils.setSelfAPName("UTC Clock");
   _wifiUtils.initialize();
-  //WiFi.begin(ssid, password);
-
-  while (WiFi.status() != WL_CONNECTED)
+  myWifiConfigWebServer._wifiUtils = &_wifiUtils;
+  myWifiConfigWebServer.start();
+  /* while (WiFi.status() != WL_CONNECTED)
   {
     delay(500);
     Serial.print(".");
-  }
-
-  timeClient.begin();
-  timeCheckPoint();
+  } */
 }
 
 void loop()
 {
+  _wifiUtils.processNextDNSRequest();
+  if (!timeClientInitialized && WiFi.getMode() != WIFI_AP)
+  {
+    timeClient.begin();
+    timeClientInitialized = true;
+    timeCheckPoint();
+  }
   // put your main code here, to run repeatedly:
   int now = millis();
   int nowDiff = now - lastCheckPointMillis;
@@ -125,7 +131,10 @@ void loop()
   displaySeconds = gmtm.tm_sec;
   if (nowDiff > checkPointIntervalMinutes)
   {
-    timeCheckPoint();
+    if (WiFi.getMode() != WIFI_AP)
+    {
+      timeCheckPoint();
+    }
   }
   int displayInt = getDisplayInt();
   if (displayInt != lastDisplayInt)
